@@ -1,0 +1,76 @@
+package com.zxelec.deadthread.demo3;
+
+public class StopThread implements Runnable {
+
+    private static int i = 0;
+    private static int j = 0;
+
+    @Override
+    public void run() {
+        i++;
+        try {
+            Thread.sleep(3000L);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        j++;
+    }
+
+    private static void printf() {
+        System.out.println("i =" + i + ", j =" + j);
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        StopThread stopThread = new StopThread();
+        Thread thread = new Thread(stopThread);
+        thread.start();
+        Thread.sleep(2000L);
+        printf();
+        thread.stop();
+    }
+}
+	这种采用stop方式会强制中断线程，导致不可预期的结果，比如上面的这个例子可以看
+到，当采用stop时，i的值增加了，由于调用stop时run()方法还处于休眠期，导致j的值不能
+增加，也就是说stop方法不会等到run()方法执行完在中断线程。
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+package com.zxelec.deadthread.demo3;
+
+
+public class InterruptThread implements Runnable{
+
+    @Override
+    public void run() {
+        while (!Thread.interrupted()){
+            System.out.println(Thread.currentThread().getName());
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        Thread thread = new Thread(new InterruptThread());
+
+        thread.start();
+        Thread.sleep(1000L);
+        thread.interrupt();
+    }
+}
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+public class FlagThread implements Runnable{
+
+    private static volatile Boolean flag = true;
+
+    @Override
+    public void run() {
+        while(flag){
+            System.out.println(Thread.currentThread().getName());
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        Thread thread = new Thread(new FlagThread());
+        thread.start();
+        Thread.sleep(300L);
+        flag = false;
+    }
+}
+通过设置标志位flag来终止程序，在有多个线程时volatile不能省略，在这种当个线程的情况
+下是可以省略的
