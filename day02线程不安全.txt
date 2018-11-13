@@ -60,7 +60,7 @@ javap -c xxx.class (对class文件进行字节码反编译)
        8: return
 
 	这一段代码的含义能过体现出i++的实现过程。
-	   0: getstatic    //得到num并将其压入栈顶
+       0: getstatic    //得到num并将其压入栈顶
        3: iconst_1     //将1压入栈顶
        4: iadd		   //将栈顶的两个元素相加
        5: putstatic    //将相加的结果压入栈顶
