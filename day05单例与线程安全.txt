@@ -1,0 +1,232 @@
+
+饿汉式------本身线程安全
+	在类加载的时候，就已经进行实例化，无论之后用不用到。如果该类比较占内存，之后
+又没有用到，就白白浪费资源。
+package com.zxelec.deadthread.demo6;
+
+/**
+ * 饿汉式单例
+ */
+public class HungerSingleton {
+
+    private static HungerSingleton ourInstance = new HungerSingleton();
+
+    public static HungerSingleton getInstance() {
+        return ourInstance;
+    }
+
+    private HungerSingleton() {
+    }
+
+    public static void main(String[] args) {
+        for(int i=0;i<10;i++){
+            new Thread(()->{
+                System.out.println(HungerSingleton.getInstance());
+            }).start();
+        }
+    }
+}
+
+10个线程，最终返回的是一个对象。
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+懒汉式
+	在需要的时候才实例化
+	package com.zxelec.deadthread.demo6;
+
+/**
+ * 懒汉式
+ */
+public class LazySingleton {
+
+    private static LazySingleton lazySingleton = null;
+
+    private LazySingleton() {
+
+    }
+
+    public static LazySingleton getInstance() {
+        if (null == lazySingleton) {
+            try {
+                Thread.sleep(2000L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            lazySingleton = new LazySingleton();
+        }
+        return lazySingleton;
+    }
+
+    public static void main(String[] args) {
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                System.out.println(LazySingleton.getInstance());
+            }).start();
+        }
+    }
+}
+
+10个线程，最终返回的不在是一个对象，也就是说并不是单例，，，即不是线程安全的。
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+当然我们可以使用synchronized关键在方法上
+
+package com.zxelec.deadthread.demo6;
+
+/**
+ * 懒汉式
+ */
+public class LazySingleton {
+
+    private static LazySingleton lazySingleton = null;
+
+    private LazySingleton() {
+
+    }
+
+    public static synchronized LazySingleton getInstance() {
+        if (null == lazySingleton) {
+            try {
+                Thread.sleep(2000L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            lazySingleton = new LazySingleton();
+        }
+        return lazySingleton;
+    }
+
+    public static void main(String[] args) {
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                System.out.println(LazySingleton.getInstance());
+            }).start();
+        }
+    }
+}
+如果方法中需要执行很长时间的操作，这种方法就非常的耗时间
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+package com.zxelec.deadthread.demo6;
+
+/**
+ * 懒汉式
+ */
+public class LazySingleton {
+
+    private static LazySingleton lazySingleton = null;
+
+    private LazySingleton() {
+
+    }
+
+    public static LazySingleton getInstance() {
+        if (null == lazySingleton) {
+            try {
+                Thread.sleep(2000L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            synchronized (LazySingleton.class) {
+                lazySingleton = new LazySingleton();
+            }
+        }
+        return lazySingleton;
+    }
+
+    public static void main(String[] args) {
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                System.out.println(LazySingleton.getInstance());
+            }).start();
+        }
+    }
+}
+
+这种方法不能实现单例的操作，但可以从这个方法衍生出双重锁
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+package com.zxelec.deadthread.demo6;
+
+/**
+ * 懒汉式
+ */
+public class LazySingleton {
+
+    private static LazySingleton lazySingleton = null;
+
+    private LazySingleton() {
+
+    }
+
+    public static LazySingleton getInstance() {
+        if (null == lazySingleton) {
+            try {
+                Thread.sleep(2000L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            synchronized (LazySingleton.class) {
+                if (null == lazySingleton) {
+                    lazySingleton = new LazySingleton();
+                }
+            }
+        }
+        return lazySingleton;
+    }
+
+    public static void main(String[] args) {
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                System.out.println(LazySingleton.getInstance());
+            }).start();
+        }
+    }
+}
+
+这种方式看上是能够在多线程环境下实现单例，，，但是在我们的jvm运行时会对指令进行
+重新排序，这就导致new LazySingleton()时有很多繁琐的操作，也会出现不可预期的结果
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+改进：采用volatile修饰实例
+
+package com.zxelec.deadthread.demo6;
+
+/**
+ * 懒汉式
+ */
+public class LazySingleton {
+
+    private static volatile LazySingleton lazySingleton = null;
+
+    private LazySingleton() {
+
+    }
+
+    public static LazySingleton getInstance() {
+        if (null == lazySingleton) {
+            try {
+                Thread.sleep(2000L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            synchronized (LazySingleton.class) {
+                if (null == lazySingleton) {
+                    lazySingleton = new LazySingleton();
+                }
+            }
+        }
+        return lazySingleton;
+    }
+
+    public static void main(String[] args) {
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                System.out.println(LazySingleton.getInstance());
+            }).start();
+        }
+    }
+	
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
