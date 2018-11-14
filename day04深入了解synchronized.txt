@@ -1,0 +1,129 @@
+
+上面讲到了非原子性的操作，如何使一个方法具有原子性呢？就需要使用synchronized
+
+synchronized的三种使用方法
+	1.在普通方法上使用
+	2.在静态方法上使用
+	3.在方法代码中使用
+三者有什么区别呢
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+package com.zxelec.deadthread.demo5;
+
+public class SynDemo {
+
+    public synchronized void out() throws InterruptedException {
+
+        System.out.println(Thread.currentThread().getName());
+
+        Thread.sleep(5000L);
+    }
+
+    public static void main(String[] args) {
+
+        SynDemo synDemo = new SynDemo();
+        SynDemo synDemo1 = new SynDemo();
+
+        new Thread(()->{
+            try {
+                synDemo.out();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+        new Thread(()->{
+            try {
+                synDemo1.out();//synDemo.out
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+}
+synchronized在普通方法上使用是锁住该类的对象实例，，，通过这个程序可以看到两个线
+程是同时输出，因为是new了两个对象，，，如果将synDemo1换成synDemo则会看到先输出
+Thread-0然后过了5s再输出Thread-1。
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+package com.zxelec.deadthread.demo5;
+
+public class SynDemo {
+
+    public static synchronized void out() throws InterruptedException {
+
+        System.out.println(Thread.currentThread().getName());
+
+        Thread.sleep(5000L);
+    }
+
+    public static void main(String[] args) {
+
+        SynDemo synDemo = new SynDemo();
+        SynDemo synDemo1 = new SynDemo();
+
+        new Thread(()->{
+            try {
+                synDemo.out();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+        new Thread(()->{
+            try {
+                synDemo1.out();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+}
+
+synchronized在静态方法上使用是锁住该类，，，通过这个程序可以知道new了两个对象，
+但是会看到先输出Thread-0然后过了5s再输出Thread-1。
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+package com.zxelec.deadthread.demo5;
+
+public class SynDemo {
+
+    private Object lock = new Object();
+
+    public void out() throws InterruptedException {
+
+        synchronized (lock) {
+
+            System.out.println(Thread.currentThread().getName());
+
+            Thread.sleep(5000L);
+        }
+    }
+
+    public static void main(String[] args) {
+
+        SynDemo synDemo = new SynDemo();
+        SynDemo synDemo1 = new SynDemo();
+
+        new Thread(()->{
+            try {
+                synDemo.out();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+        new Thread(()->{
+            try {
+                synDemo.out();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+}
+修饰代码块是锁住synchronized后面的那个对象，，，通过这个程序知道同一的对象会拥有
+同一个lock对象，因此会被锁住，，，不同对象因为有不同的lock对象，因此不会被锁住。
