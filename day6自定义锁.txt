@@ -1,0 +1,205 @@
+Lock与synchronized的区别
+	1.
+	如果使用 synchronized ，如果A不释放，B将一直等下去，不能被中断。
+	如果使用ReentrantLock，如果A不释放，可以使B在等待了足够长的时间以后，中断等待，
+而干别的事情。
+    2.
+	synchronized是在JVM层面上实现的，不但可以通过一些监控工具监控synchronized的
+锁定，而且在代码执行时出现异常，JVM会自动释放锁定，但是使用Lock则不行，lock是通过
+代码实现的，要保证锁定一定会被释放，就必须将unLock()放到finally{}中。
+	3.
+	在资源竞争不是很激烈的情况下，Synchronized的性能要优于ReetrantLock，但是在资
+源竞争很激烈的情况下，Synchronized的性能会下降几十倍，但是ReetrantLock的性能能维
+持常态。
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+自定义Lock
+
+package com.zxelec.deadthread.demo7;
+
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+
+public class MyLock implements Lock {
+
+    private boolean isHoldLock = false;
+
+    @Override
+    public synchronized void lock() {
+        if(isHoldLock){
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        isHoldLock = true;
+    }
+
+    @Override
+    public synchronized void unlock() {
+        notify();
+        isHoldLock = false;
+    }
+
+    @Override
+    public void lockInterruptibly() throws InterruptedException {
+
+    }
+
+    @Override
+    public boolean tryLock() {
+        return false;
+    }
+
+    @Override
+    public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+        return false;
+    }
+
+    @Override
+    public Condition newCondition() {
+        return null;
+    }
+}
+用多线程测试一下
+package com.zxelec.deadthread.demo7;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class UnsafeThread {
+
+    private static Lock lock = new MyLock();
+
+    private static int num = 0;
+
+    private static CountDownLatch countDownLatch = new CountDownLatch(10);
+
+    public static void inCreate() {
+        lock.lock();
+        num++;
+        lock.unlock();
+    }
+
+    public static void main(String[] args) {
+        for (int i = 0; i < 10; i++) {
+            new Thread(() -> {
+                for (int j = 0; j < 100; j++) {
+                    inCreate();
+                    try {
+                        Thread.sleep(10L);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                //每执行完一次就调用countDown
+                countDownLatch.countDown();
+            }).start();
+        }
+
+        while (true) {
+            if (countDownLatch.getCount() == 0) {
+                System.out.println(num);
+                break;
+            }
+        }
+    }
+}
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+这种锁是不具有重入性的例如采用上面的自定义的锁就会导致主线程等待。
+package com.zxelec.deadthread.demo7;
+
+public class ReentryDemo {
+
+    private MyLock lock = new MyLock();
+
+    public void methodA() {
+
+        lock.lock();
+        System.out.println("进入方法A");
+        methodB();
+        lock.unlock();
+    }
+
+    public void methodB() {
+
+        lock.lock();
+        System.out.println("进入方法B");
+        lock.unlock();
+    }
+
+    public static void main(String[] args) {
+        ReentryDemo reentryDemo = new ReentryDemo();
+
+        reentryDemo.methodA();
+    }
+}
+如何解决这个问题，需要将上面的线程做如下的改进
+package com.zxelec.deadthread.demo7;
+
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+
+public class MyLock implements Lock {
+
+    private boolean isHoldLock = false;
+
+    private Thread thread = new Thread();
+
+    private int holdLockCount = 0;
+
+    @Override
+    public synchronized void lock() {
+        //判断线程是否持有锁和线程是否为当前锁
+        if(isHoldLock&&(Thread.currentThread()!=thread)){
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        holdLockCount++;
+        thread = Thread.currentThread();
+        isHoldLock = true;
+    }
+
+    @Override
+    public synchronized void unlock() {
+        if(thread == Thread.currentThread()){
+            holdLockCount--;
+            if(holdLockCount ==0){
+                notify();
+                isHoldLock = false;
+            }
+        }
+    }
+
+    @Override
+    public void lockInterruptibly() throws InterruptedException {
+
+    }
+
+    @Override
+    public boolean tryLock() {
+        return false;
+    }
+
+    @Override
+    public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+        return false;
+    }
+
+    @Override
+    public Condition newCondition() {
+        return null;
+    }
+}
+
+	
+
+
+
+
